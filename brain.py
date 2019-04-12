@@ -17,26 +17,24 @@ formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 
 
 def setupLogger(name, log_file, level=logging.INFO):
-    """Function setup as many loggers as you want"""
+	"""Function setup as many loggers as you want"""
 
-    handler = logging.FileHandler(log_file)
-    handler.setFormatter(formatter)
+	handler = logging.FileHandler(log_file)
+	handler.setFormatter(formatter)
 
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    logger.addHandler(handler)
+	logger = logging.getLogger(name)
+	logger.setLevel(level)
+	logger.addHandler(handler)
 
-    return logger
+	return logger
+
 
 sumupLogger = setupLogger("sumupLogger", "sumups.log")
-
-
 
 dialogQueue = queue.Queue()
 outQueue = queue.Queue()
 
 taskQueue = queue.Queue()
-
 
 wordDict: Dict[str, WordDef]
 formDict: Dict[WordForm, WordDef]
@@ -44,45 +42,40 @@ upperCateDict: Dict[WordCategory, Tuple[WordCategory]]
 lowerCateDict: Dict[WordCategory, Tuple[WordCategory]]
 taskDict: Dict[str, Task]
 
-
 if os.path.isfile("upperCateDict.pickle"):
-    with open("upperCateDict.pickle", "rb") as f:
-        upperCateDict= pickle.load(f)
+	with open("upperCateDict.pickle", "rb") as f:
+		upperCateDict = pickle.load(f)
 else:
-    print("upperCateDict.pickle not fould, empty upperCateDict created", file=stderr)
-    upperCateDict= dict()
+	print("upperCateDict.pickle not fould, empty upperCateDict created", file=stderr)
+	upperCateDict = dict()
 
 if os.path.isfile("taskDict.pickle"):
-    with open("taskDict.pickle", "rb") as f:
-        taskDict= pickle.load(f)
+	with open("taskDict.pickle", "rb") as f:
+		taskDict = pickle.load(f)
 else:
-    print("taskDict.pickle not fould, empty taskDict created", file=stderr)
-    taskDict = dict()
-
+	print("taskDict.pickle not fould, empty taskDict created", file=stderr)
+	taskDict = dict()
 
 if os.path.isfile("lowerCateDict.pickle"):
-    with open("lowerCateDict.pickle", "rb") as f:
-        lowerCateDict= pickle.load(f)
+	with open("lowerCateDict.pickle", "rb") as f:
+		lowerCateDict = pickle.load(f)
 else:
-    print("lowerCateDict.pickle not fould, empty lowerCateDict created", file=stderr)
-    lowerCateDict= dict()
+	print("lowerCateDict.pickle not fould, empty lowerCateDict created", file=stderr)
+	lowerCateDict = dict()
 
 if os.path.isfile("wordDict.pickle"):
-    with open("wordDict.pickle", "rb") as f:
-        wordDict = pickle.load(f)
+	with open("wordDict.pickle", "rb") as f:
+		wordDict = pickle.load(f)
 else:
-    print("wordDict.pickle not fould, empty wordDict created", file=stderr)
-    wordDict = dict()
+	print("wordDict.pickle not fould, empty wordDict created", file=stderr)
+	wordDict = dict()
 
 if os.path.isfile("formDict.pickle"):
-    with open("formDict.pickle", "rb") as f:
-        formDict = pickle.load(f)
+	with open("formDict.pickle", "rb") as f:
+		formDict = pickle.load(f)
 else:
-    print("formDict.pickle not fould, empty formDict created", file=stderr)
-    formDict = dict()
-
-
-
+	print("formDict.pickle not fould, empty formDict created", file=stderr)
+	formDict = dict()
 
 expectations: List[SenPattern] = [vnImperative]
 
@@ -90,47 +83,41 @@ newWordsLearned = []
 
 dialogHandlers: List = list()
 
+
 def main():
-    uiExited = threading.Event()
-    thinkThread = threading.Thread(target=mainLoop, args=(uiExited,))
+	uiExited = threading.Event()
+	thinkThread = threading.Thread(target=mainLoop, args=(uiExited,))
+
+	thinkThread.start()
+	dialogBox.initialize()
+
+	uiExited.set()
+
+	thinkThread.join()
+
+	quit()
 
 
-    thinkThread.start()
-    dialogBox.initialize()
+def factorMatch(factor: DefFactor, testDef: WordDef) -> bool:
+	if factor.factorRelation is FactorRelation.ISTYPE:
+
+		types = testDef.types
+		return types is not None and factor.type in types
+
+	else:
+		raise Exception("Not implemented")
 
 
+def compDefMatch(compDef: CompDef, testDef: WordDef) -> bool:
+	allFactorPass = True
 
-    uiExited.set()
+	for factor in compDef.factors:
+		if not factorMatch(factor, testDef):
+			allFactorPass = False
+			break
 
-    thinkThread.join()
+	return allFactorPass
 
-    quit()
-
-
-def factorMatch(factor: DefFactor, testDef: WordDef)->bool:
-
-    if factor.factorRelation is FactorRelation.ISTYPE:
-
-        types = testDef.types
-        return types is not None and factor.type in types
-
-    else:
-        raise Exception("Not implemented")
-
-
-
-
-
-def compDefMatch(compDef: CompDef, testDef: WordDef)->bool:
-
-    allFactorPass = True
-
-    for factor in compDef.factors:
-        if not factorMatch(factor, testDef):
-            allFactorPass = False
-            break
-
-    return allFactorPass
 
 # def relationCheck(partition: List[str], relations: List[Relation]) -> bool:
 #     allPass = True
@@ -141,203 +128,181 @@ def compDefMatch(compDef: CompDef, testDef: WordDef)->bool:
 
 
 def isSubCate(c1: WordCategory, c2: WordCategory) -> bool:
-    return c2 in upperCateDict[c1]
+	return c2 in upperCateDict[c1]
+
 
 def checkUsage(pattern: SenPattern, partition: List[WordDef]):
+	del pattern
 
-    del pattern
+	end = len(partition)
+	anyDefPass = False
 
-    end = len(partition)
-    anyDefPass = False
+	for i, wordDef in enumerate(partition):
 
-    for i, wordDef in enumerate(partition):
+		for wordUsage in wordDef.usages:
 
+			catePass = True
+			for j in range(end):
+				rel = j - i
 
+				# todo
+				if rel != 0 and not isSubCate(partition[j].category, wordUsage.segments[rel]):
+					catePass = False
+					break
 
+			if catePass:
+				anyDefPass = True
+				break
 
-        for wordUsage in wordDef.usages:
+		if anyDefPass:
+			break
 
-            catePass = True
-            for j in range(end):
-                rel = j-i
-
-                # todo
-                if rel != 0 and not isSubCate(partition[j].category, wordUsage.segments[rel]):
-
-                    catePass = False
-                    break
-
-            if catePass:
-                anyDefPass = True
-                break
-
-        if anyDefPass:
-            break
+	return anyDefPass
 
 
-    return anyDefPass
+def parse(c: str) -> Optional[WordDef]:
+	if c in wordDict:
+		return wordDict[c]
+	else:
+		results = []
+		for form, wordDef in formDict.items():
+			if form.match(c):
+				results.append(wordDef)
 
+		num = len(results)
 
-
-
-
-def parse(c:str)->Optional[WordDef]:
-
-    if c in wordDict:
-        return wordDict[c]
-    else:
-        results = []
-        for form, wordDef in formDict.items():
-            if form.match(c):
-                results.append(wordDef)
-
-        num = len(results)
-
-        if num == 0:
-            return None
-        elif num == 1:
-            return results[0]
-        else:
-            raise Exception("not implemented")
-
-
+		if num == 0:
+			return None
+		elif num == 1:
+			return results[0]
+		else:
+			raise Exception("not implemented")
 
 
 def parsePartition(p: List[str]) -> List[WordDef]:
-    pp: List[WordDef] = []
+	pp: List[WordDef] = []
 
-    for c in p:
-        pp.append(parse(c))
-    return pp
-
+	for c in p:
+		pp.append(parse(c))
+	return pp
 
 
 def tryMatch(exp: SenPattern, dialog: str) -> List[List[str]]:
+	matches = []
 
-    matches = []
+	for partition in partitionGen(dialog, len(exp)):
 
-    for partition in partitionGen(dialog, len(exp)):
+		parsedPartition = parsePartition(partition)
 
-        parsedPartition = parsePartition(partition)
+		# not fully understanding the proposed parts
+		if None in parsedPartition:
+			pass
 
-        # not fully understanding the proposed parts
-        if None in parsedPartition:
-            pass
+		else:
 
-        else:
+			allPass = True
 
-            allPass = True
+			for i, comp in enumerate(parsedPartition):
+				compDef = exp[i]
 
-            for i, comp in enumerate(parsedPartition):
-                compDef = exp[i]
+				if not compDefMatch(compDef, comp):
+					allPass = False
+					break
 
-                if not compDefMatch(compDef, comp):
-                    allPass = False
-                    break
+			if allPass:
 
-            if allPass:
+				anyUsagePass = checkUsage(exp, parsedPartition)
 
-                anyUsagePass = checkUsage(exp, parsedPartition)
+				if anyUsagePass:
+					raise Exception("not implemented")
 
-                if anyUsagePass:
+			# relationResult = relationCheck(partition, exp.relations)
+			# if relationResult:
+			#     matches.append(partition)
 
-                    raise Exception("not implemented")
-
-                # relationResult = relationCheck(partition, exp.relations)
-                # if relationResult:
-                #     matches.append(partition)
-
-    return matches
-
-
+	return matches
 
 
 def dealWith(dialog: str):
-    results = []
-    nonTrivialCounter = 0
+	results = []
+	nonTrivialCounter = 0
 
-    for exp in expectations:
+	for exp in expectations:
 
-        result = tryMatch(exp, dialog)
+		result = tryMatch(exp, dialog)
 
-        if result:
-            # print("hey: %s"% result)
-            results.append(result)
-            nonTrivialCounter += 1
+		if result:
+			# print("hey: %s"% result)
+			results.append(result)
+			nonTrivialCounter += 1
 
-    # print(results)
+	# print(results)
 
-    if nonTrivialCounter != 0:
-        raise(Exception("not implemented"))
+	if nonTrivialCounter != 0:
+		raise (Exception("not implemented"))
 
-    else:
-        # todo
-        taskQueue.put((taskDict["acquireMeaning"], (taskQueue, dialog)))
-
+	else:
+		# todo
+		taskQueue.put((taskDict["acquireMeaning"], (taskQueue, dialog)))
 
 
 def mainLoop(uiExited):
+	while not uiExited.is_set():
 
-    while not uiExited.is_set():
+		rec = dialogBox.yieldAll()
+		if rec:
+			while rec:
+				dialogQueue.put(rec.pop(0))
 
-        rec = dialogBox.yieldAll()
-        if rec:
-            while rec:
-                dialogQueue.put(rec.pop(0))
+		else:
+			pass
 
-        else:
-            pass
+		try:
+			dialog = dialogQueue.get(False)
+		except queue.Empty:
+			pass
 
-        try:
-            dialog = dialogQueue.get(False)
-        except queue.Empty:
-            pass
+		else:
+			# print(dialog)
+			threading.Thread(target=dealWith, args=(dialog,)).start()
 
-        else:
-            # print(dialog)
-            threading.Thread(target=dealWith,args = (dialog,)).start()
+		try:
+			rep = outQueue.get(False)
+		except queue.Empty:
+			pass
+		else:
+			dialogBox.postAsSur(rep)
 
+		try:
+			taskPair = taskQueue.get(False)
 
-        try:
-            rep = outQueue.get(False)
-        except queue.Empty:
-            pass
-        else:
-            dialogBox.postAsSur(rep)
+		except queue.Empty:
+			pass
+		else:
+			threading.Thread(target=taskPair[0], args=taskPair[1]).start()
 
-        try:
-            taskPair = taskQueue.get(False)
+		time.sleep(0.05)
 
-        except queue.Empty:
-            pass
-        else:
-            threading.Thread(target=taskPair[0], args = taskPair[1]).start()
+	with open("wordDict.pickle", "wb") as ff:
+		pickle.dump(wordDict, ff)
 
+	with open("formDict.pickle", "wb") as ff:
+		pickle.dump(formDict, ff)
 
+	with open("upperCateDict.pickle", "wb") as ff:
+		pickle.dump(upperCateDict, ff)
 
-        time.sleep(0.05)
+	with open("lowerCateDict.pickle", "wb") as ff:
+		pickle.dump(lowerCateDict, ff)
 
-    with open("wordDict.pickle", "wb") as ff:
-        pickle.dump(wordDict, ff)
-
-    with open("formDict.pickle", "wb") as ff:
-        pickle.dump(formDict, ff)
-
-    with open("upperCateDict.pickle", "wb") as ff:
-        pickle.dump(upperCateDict, ff)
-
-    with open("lowerCateDict.pickle", "wb") as ff:
-        pickle.dump(lowerCateDict, ff)
-
-    with open("taskDict.pickle", "wb") as ff:
-        pickle.dump(taskDict, ff)
-
-    # sumupLogger.info("\n")
-    # sumupLogger.info("new words learned: %s"% newWordsLearned)
-    # sumupLogger.info("\n")
+	with open("taskDict.pickle", "wb") as ff:
+		pickle.dump(taskDict, ff)
 
 
+# sumupLogger.info("\n")
+# sumupLogger.info("new words learned: %s"% newWordsLearned)
+# sumupLogger.info("\n")
 
 
 if __name__ == "__main__":
-    main()
+	main()
