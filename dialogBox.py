@@ -1,6 +1,7 @@
 import os
 from tkinter import *
 import queue
+from tkinter.font import nametofont
 
 with open(os.devnull, 'w') as f:
 	oldstdout = sys.stdout
@@ -11,15 +12,25 @@ with open(os.devnull, 'w') as f:
 	sys.stdout = oldstdout
 
 pygame.mixer.init()
-pygame.mixer.music.load('assets/click.wav')
+
+
+relyDict = dict()
+sound = pygame.mixer.Sound('assets/click.wav')
 
 master = Tk()
 master.title("人工智障")
-master.geometry("1400x1000")
-master.grid_columnconfigure(0, weight=1)
-master.grid_rowconfigure(0, weight=1)
 
-frame = Frame(master)
+# for 2k screen, width, height
+geom = 1400, 1000
+master.geometry("%dx%d" % geom)
+
+master.grid_columnconfigure(0, minsize=1400*14//15)
+master.grid_rowconfigure(0, minsize=1000*14//15)
+
+master.grid_columnconfigure(1, minsize=1400//15)
+master.grid_rowconfigure(1, minsize=1000//15)
+
+frame = Frame(master, width=geom[0] * 14 // 15)
 # s = Scrollbar(frame, orient = VERTICAL)
 
 counter = 0
@@ -38,7 +49,7 @@ def clear(*args):
 	global current
 
 	del args
-	pygame.mixer.music.play(0)
+	sound.play()
 	frame.place(rely=0)
 	counter = 0
 	current = 0
@@ -51,6 +62,8 @@ b.bind("<Button-1>", clear)
 
 
 def scroll(*args):
+	# print(-(frame.winfo_reqheight()-geom[1]*14/15) / geom[1])
+	# print(-14/(6*15) * int(args[0]))
 	global current
 	# ('scroll', '1', 'pages')
 	# ('scroll', '-1', 'units')
@@ -60,7 +73,8 @@ def scroll(*args):
 	if args[0] == '0':
 		frame.place(rely=0)
 	else:
-		frame.place(rely=-0.132 * int(args[0]))
+
+		frame.place(rely=relyDict[int(args[0])])
 	current = int(args[0])
 	s.set(current)
 
@@ -82,21 +96,47 @@ def scrollUporDown(args):
 
 def addText(side, text):
 	global counter
-	pygame.mixer.music.play(0)
-	t = Text(frame, height=8)
-	t.tag_configure('big', font=('Verdana', 30, 'bold'), justify=side)
+	sound.play()
 
-	t.insert(END, text, 'big')
+	# print(font)
+	# print(frame.winfo_reqheight())
+	# print(geom[1] * 14 / 15 // 6)
+	entryFrame = Frame(frame, width=geom[0] * 14 // 15, height=geom[1] * 14 / 15 // 6, bg='red')
+	entryFrame.grid(row=counter, column=0, sticky=W+E+N+S)
+	entryFrame.grid_propagate(False)
+
+	t = Entry(entryFrame, textvariable=StringVar(), font='Verdana 30 bold', justify=side)
+
+	# t.configure(font=('Verdana', 30, 'bold'), justify=side)
+
+	# font = nametofont(t.cget("font"))
+	# print(font.measure("0"))
+	# print(t.winfo_width())
+	# print(t.winfo_reqwidth())
+
+	t.insert(END, text)
+
 	t.config(state="disabled")
-	t.grid(row=counter, column=0, sticky=W + E)
+	# print(counter * geom[1] * 14 / 15 // 6)
+	t.place(x=0, y=0, width=geom[0] * 14 // 15, height=geom[1] * 14 / 15 // 6)
+
+	frame.update()
+
+	print(counter)
+	print(-(frame.winfo_reqheight()-geom[1]*14/15) / geom[1])
+	if counter >= 6:
+		relyDict[counter-5] = -(frame.winfo_reqheight()-geom[1]*14/15) / geom[1]
+		# print(relyDict)
+
+	# print(t.bbox(END))
 	counter += 1
 
-	s.config(to=max(counter - 7, 0))
-	s.set(max(counter - 7, 0))
+	s.config(to=max(counter - 6, 0))
+	s.set(max(counter - 6, 0))
 
 
 def postAsSur(text):
-	pygame.mixer.music.play(0)
+	sound.play()
 	addText(RIGHT, text)
 
 
@@ -127,11 +167,13 @@ transferer = queue.Queue()
 e.bind('<Return>', lambda x: submit())
 
 frame.grid(row=0, column=0, sticky=W + E)
-frame.grid_columnconfigure(0, weight=1)
+
+# frame.grid_columnconfigure(0, weight=1)
 frame.place(rely=0)
 
 # addText(LEFT, "123123")
 # addText(RIGHT, "345345345")
 # addText(LEFT, "你妈死了")
 master.bind("<MouseWheel>", scrollUporDown)
-s.config(command=scroll, width=30)
+# s.config(command=scroll, width=geom[0] // 10)
+s.config(command=scroll, width=geom[0] // 15)
