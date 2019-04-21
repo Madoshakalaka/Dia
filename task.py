@@ -1,80 +1,84 @@
+import marshal
 import threading
+import types
 from enum import Enum
+from queue import Queue
 from typing import Dict, Optional
 
 
-
-
 class TaskStat(Enum):
-    STATIC = 0
-    INPROGRESS = 1
+	STATIC = 0
+	INPROGRESS = 1
 
 
 class Task:
+	code: bytes
+	indicator: Optional[threading.Event]
+	stat: TaskStat
+	allNeeds: Optional[Dict]
+	name: str
 
-    indicator: Optional[threading.Event]
-    stat: TaskStat
-    allNeeds: Optional[Dict]
-    name: str
+	def __init__(self, name: str, allNeeds=None):
+		self.name = name
 
+		if allNeeds is None:
+			self.allNeeds = []
+		else:
+			self.allNeeds = allNeeds
 
+		self.stat = TaskStat.STATIC
 
-    def __init__(self, name: str):
-        self.name = name
+		self.indicator = None
 
-        self.allNeeds = None
+		# code of the function the task does
+		self.code = None
 
-        self.stat = TaskStat.STATIC
+		# proper function
+		self.function = None
 
-        self.indicator = None
+	def __call__(self, repQueue:Queue, taskQueue, *args):
 
+		# create indicator for initiating task
+		if self.indicator is None:
+			self.indicator = threading.Event()
 
+		self.stat = TaskStat.INPROGRESS
 
-    def __call__(self, taskQueue, *args):
+		# wait for requirements to finish
+		for need in self.allNeeds:
+			subArgs = []
 
-        if self.indicator is None:
-            self.indicator = threading.Event()
+			need.indicator = threading.Event()
 
+			for i in self.allNeeds[need]:
+				subArgs.append(args[i])
 
-        self.stat = TaskStat.INPROGRESS
+			taskQueue.put((need, [repQueue, taskQueue] + subArgs))
 
-        for need in self.allNeeds:
-            subArgs = []
+		for need in self.allNeeds:
+			need.indicator.wait()
 
-            need.indicator = threading.Event()
+		# do what else needs to be done
+		self.doShit(repQueue, taskQueue, *args)
 
-            for i in self.allNeeds[need]:
-                subArgs.append(args[i])
+		# signals the task has been done
+		self.indicator.set()
+		self.stat = TaskStat.STATIC
 
-            taskQueue.put((need, [taskQueue] + subArgs))
+	# noinspection PyArgumentList
+	def doShit(self, repQueue, taskQueue, *args):
+		if self.function is None:
+			f = types.FunctionType(marshal.loads(self.code), globals(), "function")
+			self.function = f
 
-        for need in self.allNeeds:
-            need.indicator.wait()
+			self.function(repQueue, taskQueue, *args)
+		else:
+			self.function(repQueue, taskQueue, *args)
 
-
-        self.doShit()
-
-        self.indicator.set()
-        self.stat = TaskStat.STATIC
-
-
-    def doShit(self):
-        indicator = threading.Event()
-
-    def setAllNeeds(self, paraDict: dict):
-        self.allNeeds = paraDict
-
-
-
-
+	def setAllNeeds(self, paraDict: dict):
+		self.allNeeds = paraDict
 
 
 
 # argNum = 1
-acquireMeaning = Task("acquireMeaning")
-
-
-
-
-
-
+acquireMeaning = Task("acquireMeaning", [])

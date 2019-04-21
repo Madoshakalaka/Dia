@@ -10,7 +10,9 @@ import dialogBox
 from pattern import *
 import os.path
 
-# 算1+1
+# 1 算1+1
+# 1.1 reply via tasks | acquireMeaning task needs to be corrected later
+
 from task import Task
 
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
@@ -40,6 +42,10 @@ wordDict: Dict[str, WordDef]
 formDict: Dict[WordForm, WordDef]
 upperCateDict: Dict[WordCategory, Tuple[WordCategory]]
 lowerCateDict: Dict[WordCategory, Tuple[WordCategory]]
+
+"""
+taskName: task
+"""
 taskDict: Dict[str, Task]
 
 if os.path.isfile("upperCateDict.pickle"):
@@ -216,9 +222,9 @@ def tryMatch(exp: SenPattern, dialog: str) -> List[List[str]]:
 				if anyUsagePass:
 					raise Exception("not implemented")
 
-			# relationResult = relationCheck(partition, exp.relations)
-			# if relationResult:
-			#     matches.append(partition)
+		# relationResult = relationCheck(partition, exp.relations)
+		# if relationResult:
+		#     matches.append(partition)
 
 	return matches
 
@@ -279,7 +285,7 @@ def mainLoop(uiExited):
 		except queue.Empty:
 			pass
 		else:
-			threading.Thread(target=taskPair[0], args=taskPair[1]).start()
+			threading.Thread(target=taskPair[0], args=(outQueue,)+taskPair[1]).start()
 
 		time.sleep(0.05)
 
@@ -296,6 +302,9 @@ def mainLoop(uiExited):
 		pickle.dump(lowerCateDict, ff)
 
 	with open("taskDict.pickle", "wb") as ff:
+		for task in taskDict.values():
+			task.indicator = None
+			task.function = None
 		pickle.dump(taskDict, ff)
 
 
